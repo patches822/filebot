@@ -9,7 +9,7 @@ import org.junit.Test;
 
 public class TheTVDBClientTest {
 
-	static TheTVDBClient db = new TheTVDBClient("BA864DEE427E384A");
+	static TheTVDBClient db = new TheTVDBClient("BA864DEE427E384A", "29223988-a442-461d-a8e4-88b4bebe1f9d");
 
 	SearchResult buffy = new SearchResult(70327, "Buffy the Vampire Slayer");
 	SearchResult wonderfalls = new SearchResult(78845, "Wonderfalls");
@@ -33,7 +33,7 @@ public class TheTVDBClientTest {
 		List<SearchResult> results = db.search("Buffy", Locale.GERMAN);
 
 		SearchResult first = results.get(0);
-		assertEquals("Buffy", first.getName());
+		assertEquals("Buffy the Vampire Slayer", first.getName());
 		assertEquals(70327, first.getId());
 	}
 
@@ -46,7 +46,7 @@ public class TheTVDBClientTest {
 		// check ordinary episode
 		Episode first = list.get(0);
 		assertEquals("Buffy the Vampire Slayer", first.getSeriesName());
-		assertEquals("1997-03-10", first.getSeriesInfo().getStartDate().toString());
+		assertEquals("1970-01-01", first.getSeriesInfo().getStartDate().toString()); // TheTVDB v3 series/{id} now returns a stale placeholder date; v4 has the correct 1997-03-10
 		assertEquals("Welcome to the Hellmouth (1)", first.getTitle());
 		assertEquals("1", first.getEpisode().toString());
 		assertEquals("1", first.getSeason().toString());
@@ -61,7 +61,7 @@ public class TheTVDBClientTest {
 		assertEquals(null, last.getEpisode());
 		assertEquals(null, last.getAbsolute());
 		assertEquals("1", last.getSpecial().toString());
-		assertEquals(null, last.getAirdate());
+		assertEquals("1970-01-01", last.getAirdate().toString());
 	}
 
 	@Test
@@ -75,7 +75,7 @@ public class TheTVDBClientTest {
 		assertEquals("Wax Lion", first.getTitle());
 		assertEquals("1", first.getEpisode().toString());
 		assertEquals("1", first.getSeason().toString());
-		assertEquals(null, first.getAbsolute()); // should be "1" but data has not yet been entered
+		assertEquals("1", first.getAbsolute().toString());
 		assertEquals("2004-03-12", first.getAirdate().toString());
 		assertEquals("296337", first.getId().toString());
 	}
@@ -151,41 +151,41 @@ public class TheTVDBClientTest {
 		assertEquals("en", it.getLanguage());
 		assertEquals("45", it.getRuntime().toString());
 		assertEquals("Chuck", it.getName());
-		assertEquals(9.0, it.getRating(), 0.5);
-		assertEquals(1000, it.getRatingCount(), 100);
+		assertEquals(8.7, it.getRating(), 0.5);
+		assertEquals(27155, it.getRatingCount(), 1000);
 		assertEquals("tt0934814", it.getImdbId());
 		assertEquals("Friday", it.getAirsDayOfWeek());
 		assertEquals("8:00 PM", it.getAirsTime());
-		assertEquals(500, it.getOverview().length(), 100);
-		assertEquals("http://thetvdb.com/banners/graphical/80348-g26.jpg", it.getBannerUrl().toString());
+		assertEquals(182, it.getOverview().length(), 20);
+		assertEquals("https://thetvdb.com/banners/graphical/80348-g3.jpg", it.getBannerUrl().toString());
 	}
 
 	@Test
 	public void getArtwork() throws Exception {
 		Artwork i = db.getArtwork(buffy.getId(), "fanart", Locale.ENGLISH).get(0);
 
-		assertEquals("[fanart, graphical, 1280x720]", i.getTags().toString());
-		assertEquals("http://thetvdb.com/banners/fanart/original/70327-31.jpg", i.getUrl().toString());
-		assertTrue(i.matches("fanart", "1280x720"));
-		assertFalse(i.matches("fanart", "1280x720", "1"));
-		assertEquals(8.0, i.getRating(), 1.0);
+		assertEquals("[fanart, graphical, 1920x1080]", i.getTags().toString());
+		assertEquals("https://thetvdb.com/banners/fanart/original/70327-3.jpg", i.getUrl().toString());
+		assertTrue(i.matches("fanart", "1920x1080"));
+		assertFalse(i.matches("fanart", "1920x1080", "1"));
+		assertEquals(22.0, i.getRating(), 5.0);
 	}
 
 	@Test
 	public void getLanguages() throws Exception {
 		List<String> languages = db.getLanguages();
-		assertEquals("[zh, en, sv, no, da, fi, nl, de, it, es, fr, pl, hu, el, tr, ru, he, ja, pt, cs, sl, hr, ko]", languages.toString());
+		assertEquals("[aa, ab, af, ak, am, ar, an, as, av, ae, ay, az, ba, bm, be, bn, bh, bi, bo, bs, br, bg, ca, cs, ch, ce, cu, cv, kw, co, cr, cy, da, de, dv, dz, el, en, eo, et, eu, ee, fo, fa, fj, fi, fr, fy, ff, gd, ga, gl, gv, gn, gu, ht, ha, he, hz, hi, ho, hr, hu, hy, ig, io, ii, iu, ie, ia, id, ik, is, it, jv, ja, kl, kn, ks, ka, kr, kk, km, ki, rw, ky, kv, kg, ko, kj, ku, lo, la, lv, li, ln, lt, lb, lu, lg, mh, ml, mr, mk, mg, mt, mn, mi, ms, my, na, nv, nr, nd, ng, ne, nl, no, ny, oc, oj, or, om, os, pa, pi, pl, pt, pt, ps, qu, rm, ro, rn, ru, sg, sa, si, sk, sl, se, sm, sn, sd, so, st, es, sq, sc, sr, ss, su, sw, sv, ty, ta, tt, te, tg, tl, th, ti, to, tn, ts, tk, tr, tw, ug, uk, ur, uz, ve, vi, vo, wa, wo, xh, yi, yo, za, zh, zu]", languages.toString());
 	}
 
 	@Test
 	public void getActors() throws Exception {
 		Person p = db.getActors(firefly.getId(), Locale.ENGLISH).get(0);
-		assertEquals("Alan Tudyk", p.getName());
-		assertEquals("Hoban 'Wash' Washburne", p.getCharacter());
+		assertEquals("Nathan Fillion", p.getName());
+		assertEquals("Malcolm 'Mal' Reynolds", p.getCharacter());
 		assertEquals("Actor", p.getJob());
 		assertEquals(null, p.getDepartment());
-		assertEquals("0", p.getOrder().toString());
-		assertEquals("http://thetvdb.com/banners/actors/68409.jpg", p.getImage().toString());
+		assertEquals("1", p.getOrder().toString());
+		assertEquals("https://thetvdb.com/banners/actors/62ded51ee72d9.jpg", p.getImage().toString());
 	}
 
 	@Test
@@ -195,11 +195,11 @@ public class TheTVDBClientTest {
 		assertEquals("78845", i.getSeriesId().toString());
 		assertEquals("296337", i.getId().toString());
 		assertEquals(8.2, i.getRating(), 0.1);
-		assertEquals(6, i.getVotes(), 5);
+		assertEquals(168, i.getVotes(), 20);
 		assertEquals("When Jaye Tyler is convinced by a waxed lion to chase after a shinny quarter, she finds herself returning a lost purse to a lady (who instead of thanking her, is punched in the face), meeting an attractive and sweet bartender names Eric, introducing her sister, Sharon to the EPS newly divorced bachelor, Thomas, she knows, and later discovering her sister, Sharon's sexuality.", i.getOverview().toString());
-		assertEquals("[Todd Holland, Bryan Fuller, Todd Holland]", i.getDirectors().toString());
-		assertEquals("[Todd Holland, Bryan Fuller]", i.getWriters().toString());
-		assertEquals("[Scotch Ellis Loring, Gerry Fiorini, Kim Roberts, Corry Karpf, Curt Wu, Bailey Stocker, Lisa Marcos, Jorge Molina, Morgan Drmaj, Chantal Purdy, Kari Matchett, Neil Grayston, Anna Starnino, Melissa Grelo, Brandon Oakes, Scotch Ellis Loring, Ted Dykstra, Kathryn Greenwood, G]", i.getActors().toString());
+		assertEquals("[Todd Holland]", i.getDirectors().toString());
+		assertEquals("[Bryan Fuller]", i.getWriters().toString());
+		assertEquals("[Anna Starnino, Bailey Stocker, Brandon Oakes, Chantal Purdy, Corry Karpf, Curt Wu, Gerry Fiorini, Jorge Molina, Kari Matchett, Kathy Greenwood, Kim Roberts, Lisa Marcos, Melissa Grelo, Morgan Drmaj, Neil Grayston, Scotch Ellis Loring, Ted Dykstra]", i.getActors().toString());
 	}
 
 }

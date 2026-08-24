@@ -58,7 +58,7 @@ public final class WebServices {
 	public static final AnidbClient AniDB = new AnidbClientWithLocalSearch(getApiKey("anidb"), 6);
 
 	// extended TheTVDB module with local search
-	public static final TheTVDBClientWithLocalSearch TheTVDB = new TheTVDBClientWithLocalSearch(getApiKey("thetvdb"));
+	public static final TheTVDBClientWithLocalSearch TheTVDB = new TheTVDBClientWithLocalSearch(getApiKey("thetvdb"), getApiKey("thetvdb.v4"));
 	public static final TMDbTVClient TheMovieDB_TV = new TMDbTVClient(TheMovieDB);
 
 	// subtitle sources
@@ -165,8 +165,8 @@ public final class WebServices {
 
 	public static class TheTVDBClientWithLocalSearch extends TheTVDBClient {
 
-		public TheTVDBClientWithLocalSearch(String apikey) {
-			super(apikey);
+		public TheTVDBClientWithLocalSearch(String apikey, String apikeyV4) {
+			super(apikey, apikeyV4);
 		}
 
 		// local TheTVDB search index

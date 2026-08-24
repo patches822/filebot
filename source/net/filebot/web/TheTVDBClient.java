@@ -36,9 +36,15 @@ public class TheTVDBClient extends AbstractEpisodeListProvider implements Artwor
 	private static final Locale DEFAULT_LOCALE = Locale.ENGLISH;
 
 	private String apikey;
+	private String apikeyV4;
 
 	public TheTVDBClient(String apikey) {
+		this(apikey, apikey);
+	}
+
+	public TheTVDBClient(String apikey, String apikeyV4) {
 		this.apikey = apikey;
+		this.apikeyV4 = apikeyV4;
 	}
 
 	@Override
@@ -121,17 +127,62 @@ public class TheTVDBClient extends AbstractEpisodeListProvider implements Artwor
 		}
 	}
 
-	protected List<SearchResult> search(String path, Map<String, Object> query, Locale locale, Duration expirationTime) throws Exception {
-		Object json = requestJson(path + "?" + encodeParameters(query, true), locale, expirationTime);
+	// TheTVDB API v3 search/series was disabled by TheTVDB. Search is only available via API v4, so we authenticate
+	// and query api4.thetvdb.com just for search, and continue to use api.thetvdb.com (v3) for everything else.
+	protected Object postJsonV4(String path, Object object) throws Exception {
+		ByteBuffer response = post(getEndpointV4(path), json(object, false).getBytes(UTF_8), "application/json", null);
+		return readJson(UTF_8.decode(response));
+	}
+
+	protected Object requestJsonV4(String path, Locale locale, Duration expirationTime) throws Exception {
+		Cache cache = Cache.getCache((locale == null || locale == Locale.ROOT ? getName() : getName() + "_" + locale.getLanguage()) + "_v4", CacheType.Monthly);
+		return cache.json(path, this::getEndpointV4).fetch(fetchIfModified(() -> getRequestHeaderV4(locale))).expire(expirationTime).get();
+	}
+
+	protected URL getEndpointV4(String path) throws Exception {
+		return new URL("https://api4.thetvdb.com/v4/" + path);
+	}
+
+	private Map<String, String> getRequestHeaderV4(Locale locale) {
+		Map<String, String> header = new LinkedHashMap<String, String>(2);
+		header.put("Accept", "application/json");
+		header.put("Authorization", "Bearer " + getAuthorizationTokenV4());
+		return header;
+	}
+
+	private String tokenV4 = null;
+	private Instant tokenV4ExpireInstant = null;
+	private Duration tokenV4ExpireDuration = Duration.ofDays(27); // token is valid for 1 month
+
+	private String getAuthorizationTokenV4() {
+		synchronized (tokenV4ExpireDuration) {
+			if (tokenV4 == null || (tokenV4ExpireInstant != null && Instant.now().isAfter(tokenV4ExpireInstant))) {
+				try {
+					Object json = postJsonV4("login", singletonMap("apikey", apikeyV4));
+					tokenV4 = getString(getMap(json, "data"), "token");
+					tokenV4ExpireInstant = Instant.now().plus(tokenV4ExpireDuration);
+				} catch (Exception e) {
+					throw new IllegalStateException("Failed to retrieve v4 authorization token: " + e.getMessage(), e);
+				}
+			}
+			return tokenV4;
+		}
+	}
+
+	protected List<SearchResult> searchV4(Map<String, Object> query, Locale locale, Duration expirationTime) throws Exception {
+		Map<String, Object> parameters = new LinkedHashMap<String, Object>(query);
+		parameters.put("type", "series");
+
+		Object json = requestJsonV4("search?" + encodeParameters(parameters, true), locale, expirationTime);
 
 		return streamJsonObjects(json, "data").map(it -> {
-			// e.g. aliases, banner, firstAired, id, network, overview, seriesName, status
-			int id = getInteger(it, "id");
-			String seriesName = getString(it, "seriesName");
+			// e.g. aliases, id (tvdb_id as numeric string), name, translations
+			Integer id = getInteger(it, "tvdb_id");
+			String seriesName = getString(it, "name");
 			String[] aliasNames = stream(getArray(it, "aliases")).toArray(String[]::new);
 
-			if (seriesName == null || seriesName.startsWith("**") || seriesName.endsWith("**")) {
-				debug.warning(format("Ignore invalid series: %s [%d]", seriesName, id));
+			if (id == null || seriesName == null || seriesName.startsWith("**") || seriesName.endsWith("**")) {
+				debug.warning(format("Ignore invalid series: %s [%s]", seriesName, id));
 				return null;
 			}
 
@@ -141,7 +192,7 @@ public class TheTVDBClient extends AbstractEpisodeListProvider implements Artwor
 
 	@Override
 	public List<SearchResult> fetchSearchResult(String query, Locale locale) throws Exception {
-		return search("search/series", singletonMap("name", query), locale, Cache.ONE_DAY);
+		return searchV4(singletonMap("query", query), locale, Cache.ONE_DAY);
 	}
 
 	@Override
@@ -275,8 +326,21 @@ public class TheTVDBClient extends AbstractEpisodeListProvider implements Artwor
 			throw new IllegalArgumentException("Illegal IMDbID ID: " + imdbid);
 		}
 
-		List<SearchResult> result = search("search/series", singletonMap("imdbId", String.format("tt%07d", imdbid)), locale, Cache.ONE_MONTH);
-		return result.size() > 0 ? result.get(0) : null;
+		// v4 /search does not support remote_id lookup on its own (requires a query term as well), so we use the
+		// dedicated /search/remoteid/{remoteId} endpoint instead, which returns a SeriesBaseRecord, not a SearchResult
+		Object json = requestJsonV4("search/remoteid/" + String.format("tt%07d", imdbid), locale, Cache.ONE_MONTH);
+
+		return streamJsonObjects(json, "data").map(it -> {
+			Object series = getMap(it, "series");
+			Integer id = getInteger(series, "id");
+			String seriesName = getString(series, "name");
+
+			if (id == null || seriesName == null) {
+				return null;
+			}
+
+			return new SearchResult(id, seriesName);
+		}).filter(Objects::nonNull).findFirst().orElse(null);
 	}
 
 	@Override
